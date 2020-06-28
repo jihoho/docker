@@ -1,0 +1,62 @@
+# Author : HojunJi
+
+version: '3'
+
+services:
+    #opentsdb container 실행
+    opentsdb:
+      image: petergrace/opentsdb-docker:latest
+      restart: always
+      #로컬에서 opentsdb 웹접속을 위한 로컬포트:컨테이너내부포트 포트포워딩
+      ports:
+          - "60010:4242"
+    
+    #csv to opentsdb container 실행
+    app_csv_otsdb:
+      image: jihoho/csv_to_opentsdb:v2
+      #container에 ssh 접속을 위해 로컬포트:컨테이너내부포트 포트포워딩
+      ports:
+        - "5004:22"
+      volumes:
+        - "./app_csv2ots_volume:/app/CSV2TSDB/"
+        - "./csv:/app/csv"
+      # IP는 로컬host ip를 입력해야함
+      environment:
+        - IP_ADD=192.168.99.100
+        - PORT=60010
+        - FIELDNAME=DRIVE_SPEED|DRIVE_LENGTH_TOTAL
+        - IDFIELD=PHONE_NUM
+        - TIMEFIELD=RECORD_TIME
+        - METRIC=csv_data
+        - PN=2
+        - CN=2
+    
+    #이상치 제거 container 실행
+    app_rm_outlier:
+      image: jihoho/opentsdb_remove_outlier:v3
+      #container에 ssh 접속을 위해 로컬포트:컨테이너내부포트 포트포워딩
+      ports:
+        - "5005:22"
+      volumes:
+        - "./app_rmoutlier_volume:/app/apps/02_otsdb_rm_outlier"
+      # IP는 로컬host ip를 입력해야함
+      environment:
+        - IP_ADD=192.168.99.100
+        - PORT=60010
+        - METRIC_IN=csv_data
+        - METRIC_OUT=rm_outlier
+
+    # 주행구간 추출 전처리 container 실행
+    app_get_driving:
+      image: jihoho/opentsdb_get_driving:v7
+      #container에 ssh 접속을 위해 로컬포트:컨테이너내부포트 포트포워딩
+      ports:
+        - "5006:22"
+      volumes:
+        - "./app_get_driving_volume:/app/apps/02_otsdb_get_drive_startend"
+      # IP는 로컬host ip를 입력해야함
+      environment:
+        - IP_ADD=192.168.99.100
+        - PORT=60010
+        - METRIC_IN=rm_outlier
+        - METRIC_OUT=driving_startend
